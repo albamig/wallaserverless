@@ -1,0 +1,106 @@
+org: albamig
+app: wallaserverless
+service: wallaserverless
+
+frameworkVersion: '2'
+
+plugins:
+  - serverless-python-requirements
+  - serverless-openapi-documentation
+
+custom:
+  pythonRequirements:
+    dockerizePip: "non-linux"
+
+package:
+  exclude:
+    - node_modules/**
+
+provider:
+  name: aws
+  region: eu-west-1
+  runtime: python3.8
+  lambdaHashingVersion: 20201221
+  environment:
+    DYNAMODB_ADVERTISEMENTS_TABLE: advertisements-${sls:instanceId}
+    DYNAMODB_MESSAGES_TABLE: messages-${sls:instanceId}
+  iam:
+    role:
+      statements:
+        - Effect: "Allow"
+          Action:
+            - dynamodb:Query
+            - dynamodb:PutItem
+            - dynamodb:Scan
+          Resource:
+            - "arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.DYNAMODB_ADVERTISEMENTS_TABLE}"
+            - "arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.DYNAMODB_MESSAGES_TABLE}"
+
+functions:
+  create_advertisement:
+    handler: advertisement.create
+    events:
+      - http:
+          path: /advertisements/{id}
+          method: post
+          cors: true
+
+  get_advertisement:
+    handler: advertisement.get
+    events:
+      - http:
+          path: /advertisements/{id}
+          method: get
+          cors: true
+
+  get_all_advertisements:
+    handler: advertisement.get_all
+    events:
+      - http:
+          path: /advertisements
+          method: get
+          cors: true
+
+  send_message:
+    handler: advertisement.send_message
+    events:
+      - http:
+          path: /advertisements/{id}/chat
+          method: post
+          cors: true
+
+  get_message:
+    handler: advertisement.get_message
+    events:
+      - http:
+          path: /advertisements/{id}/chat
+          method: get
+          cors: true
+resources:
+  Resources:
+    WallaServerlessDynamoDB:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.DYNAMODB_ADVERTISEMENTS_TABLE}
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
+    DynamoChatsMessagesTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.DYNAMODB_MESSAGES_TABLE}
+        AttributeDefinitions:
+          - AttributeName: advertisement_id
+            AttributeType: S
+          - AttributeName: timestamp
+            AttributeType: S
+        KeySchema:
+          - AttributeName: advertisement_id
+            KeyType: HASH
+          - AttributeName: timestamp
+            KeyType: RANGE
+        BillingMode: PAY_PER_REQUEST

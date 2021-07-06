@@ -6,7 +6,6 @@ frameworkVersion: '2'
 
 plugins:
   - serverless-python-requirements
-  - serverless-openapi-documentation
 
 custom:
   pythonRequirements:
